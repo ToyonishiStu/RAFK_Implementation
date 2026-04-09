@@ -1,0 +1,28 @@
+{
+    "name": "Flash Diffusion Dev Container",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "../../flash_diffusion"
+    },
+    "extensions":[
+        "njpwerner.autodocstring",
+        "ms-python.autopep8",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "formulahendry.code-runner",
+        "ms-azuretools.vscode-containers",
+        "eamodio.gitlens",
+        "oderwat.indent-rainbow",
+        "ms-python.isort",
+        "christian-kohler.path-intellisense",
+        "ms-python.python",
+        "shardulm94.trailing-spaces"
+    ],
+    "runArgs": [
+    "--gpus", "all"
+    ],
+    "remoteUser": "root",
+    "shutdownAction": "none",
+    "mounts": ["source=myvolume,target=/workspace,type=volume"]
+}
