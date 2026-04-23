@@ -65,7 +65,7 @@ def train_one_epoch(model, loader, optimizer, scaler, device, config,
         mask = batch["mask"].to(device, non_blocking=True)
 
         # ---- Generator forward ----
-        with torch.amp.autocast("cuda", dtype=torch.float16, enabled=config.mixed_precision):
+        with torch.amp.autocast(device.type, dtype=torch.float16, enabled=config.mixed_precision):
             pred = model(inp)
             loss_l1 = masked_l1_loss(pred, target, mask)
 
@@ -98,7 +98,7 @@ def train_one_epoch(model, loader, optimizer, scaler, device, config,
         # ---- Discriminator forward ----
         loss_d = torch.tensor(0.0, device=device)
         if disc is not None:
-            with torch.amp.autocast("cuda", dtype=torch.float16, enabled=config.mixed_precision):
+            with torch.amp.autocast(device.type, dtype=torch.float16, enabled=config.mixed_precision):
                 real_scores = disc(target, mask)
                 fake_scores = disc(pred.detach(), mask)
                 loss_d = hinge_loss_disc(real_scores, fake_scores)
@@ -139,7 +139,7 @@ def validate(model, loader, device, config):
         target = batch["target"].to(device, non_blocking=True)
         mask = batch["mask"].to(device, non_blocking=True)
 
-        with torch.amp.autocast("cuda", dtype=torch.float16, enabled=config.mixed_precision):
+        with torch.amp.autocast(device.type, dtype=torch.float16, enabled=config.mixed_precision):
             pred = model(inp)
             loss = masked_l1_loss(pred, target, mask)
 
@@ -234,7 +234,7 @@ def main():
         model.parameters(), lr=config.lr,
         betas=(0.9, 0.999), weight_decay=config.weight_decay,
     )
-    scaler = torch.amp.GradScaler("cuda", enabled=config.mixed_precision)
+    scaler = torch.amp.GradScaler(device.type, enabled=config.mixed_precision)
 
     # Discriminator (MKDisc)
     disc = None
@@ -257,7 +257,7 @@ def main():
             disc.parameters(), lr=config.disc_lr,
             betas=(0.0, 0.99), weight_decay=config.disc_weight_decay,
         )
-        disc_scaler = torch.amp.GradScaler("cuda", enabled=config.mixed_precision)
+        disc_scaler = torch.amp.GradScaler(device.type, enabled=config.mixed_precision)
 
     # Resume
     start_epoch = 0

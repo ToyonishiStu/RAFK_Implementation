@@ -25,7 +25,7 @@ def infer_single(model, range_path: str, config: Config, device: torch.device):
     inp = sample["input"].unsqueeze(0).to(device)
     mask = sample["mask"].numpy()[0]
 
-    with torch.amp.autocast("cuda", dtype=torch.float16, enabled=config.mixed_precision):
+    with torch.amp.autocast(device.type, dtype=torch.float16, enabled=config.mixed_precision):
         pred = model(inp)
 
     pred_range = pred[0, 0].cpu().float().numpy()
@@ -45,7 +45,7 @@ def infer_batch(model, file_list: list, config: Config, device: torch.device,
         inp = sample["input"].unsqueeze(0).to(device)
         mask = sample["mask"].numpy()[0]
 
-        with torch.amp.autocast("cuda", dtype=torch.float16, enabled=config.mixed_precision):
+        with torch.amp.autocast(device.type, dtype=torch.float16, enabled=config.mixed_precision):
             pred = model(inp)
 
         pred_range = pred[0, 0].cpu().float().numpy()

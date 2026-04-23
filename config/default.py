@@ -29,12 +29,12 @@ class Config:
     faa_alpha_init: float = 0.1
 
     # Training
-    batch_size: int = 8
-    num_epochs: int = 600
+    batch_size: int = 4
+    num_epochs: int = 200
     lr: float = 5e-4
     weight_decay: float = 0.01
-    warmup_epochs: int = 60
-    restart_period: int = 600
+    warmup_epochs: int = 30
+    restart_period: int = 85
     lr_decay_per_cycle: float = 0.7
     grad_clip: float = 1.0
 

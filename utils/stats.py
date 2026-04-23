@@ -62,12 +62,14 @@ def significance_marker(p_value: float) -> str:
     return "ns"
 
 
-def run_all_tests(per_frame_results: dict, metrics: list = None) -> dict:
+def run_all_tests(per_frame_results: dict, metrics: list = None,
+                  reference_variant: str = "proposed") -> dict:
     """Run all statistical tests for all variant pairs.
 
     Args:
         per_frame_results: {variant: [per_frame_metrics_list]}
         metrics: list of metric keys to test (default: mae, chamfer_distance, iou, f1)
+        reference_variant: variant to use as the "proposed" side in comparisons
 
     Returns:
         Nested dict: {metric: {pair_label: {test_name: result}}}
@@ -88,19 +90,19 @@ def run_all_tests(per_frame_results: dict, metrics: list = None) -> dict:
                             if np.isfinite(f[m])])
             variant_vals[v] = vals
 
-        # Compare proposed vs each other
-        if "proposed" in variant_vals:
+        # Compare reference_variant vs each other
+        if reference_variant in variant_vals:
             for v in variants:
-                if v == "proposed":
+                if v == reference_variant:
                     continue
-                a = variant_vals["proposed"]
+                a = variant_vals[reference_variant]
                 b = variant_vals[v]
                 n = min(len(a), len(b))
                 if n < 5:
                     continue
                 a, b = a[:n], b[:n]
 
-                pair_label = f"proposed_vs_{v}"
+                pair_label = f"{reference_variant}_vs_{v}"
                 all_results[m][pair_label] = {
                     "paired_t": paired_t_test(a, b),
                     "wilcoxon": wilcoxon_test(a, b),

@@ -64,15 +64,17 @@ def generate_latex_comparison(
     flash_metrics: dict | None,
     proposed_metrics: dict | None,
     output_path: str,
+    baseline_label: str = "FLASH",
+    proposed_label: str = "FLASH+",
 ):
     """FLASH論文 Table III 対応の LaTeX 比較表を生成する。
 
-    行 = [FLASH (既存), FLASH+ (提案)]
+    行 = [baseline, proposed]
     列 = MAE near / MAE far / CD / IoU / F1 / FPS
     """
     rows = [
-        ("FLASH",  flash_metrics),
-        ("FLASH+", proposed_metrics),
+        (baseline_label, flash_metrics),
+        (proposed_label, proposed_metrics),
     ]
 
     def _mae_range(per_frame, rng_key):
@@ -151,13 +153,14 @@ def generate_latex_comparison(
     print(f"LaTeX table saved: {output_path}")
 
 
-def plot_bev_three(gt_pts, flash_pts, proposed_pts, save_path: str):
-    """BEV 3列比較: GT / FLASH / FLASH+"""
+def plot_bev_three(gt_pts, flash_pts, proposed_pts, save_path: str,
+                   baseline_label: str = "FLASH", proposed_label: str = "FLASH+"):
+    """BEV 3列比較: GT / baseline / proposed"""
     fig, axes = plt.subplots(1, 3, figsize=(24, 8))
     pairs = [
         (axes[0], gt_pts,       "Ground Truth"),
-        (axes[1], flash_pts,    "FLASH (baseline)"),
-        (axes[2], proposed_pts, "FLASH+ (proposed)"),
+        (axes[1], flash_pts,    f"{baseline_label} (baseline)"),
+        (axes[2], proposed_pts, f"{proposed_label} (proposed)"),
     ]
     for ax, pts, title in pairs:
         if len(pts) == 0:
@@ -187,20 +190,25 @@ def run_comparison(
     num_frames: int,
     output_dir: str,
     dev: bool,
+    baseline_variant: str = "baseline",
+    proposed_variant: str = "proposed",
 ):
     """メイン比較ルーチン。"""
     os.makedirs(output_dir, exist_ok=True)
 
     device = get_device()
 
+    baseline_label = "FLASH" if baseline_variant == "baseline" else f"FLASH ({baseline_variant})"
+    proposed_label = "FLASH+" if proposed_variant == "proposed" else f"FLASH+ ({proposed_variant})"
+
     # --- Config per variant ---
-    cfg_flash    = Config.ablation("baseline", dev=dev)
-    cfg_proposed = Config.ablation("proposed", dev=dev)
+    cfg_flash    = Config.ablation(baseline_variant, dev=dev)
+    cfg_proposed = Config.ablation(proposed_variant, dev=dev)
 
     # --- Load models ---
     print("\n[1/5] Loading models...")
-    model_flash    = load_model("baseline", base_dir, cfg_flash,    device)
-    model_proposed = load_model("proposed", base_dir, cfg_proposed, device)
+    model_flash    = load_model(baseline_variant, base_dir, cfg_flash,    device)
+    model_proposed = load_model(proposed_variant, base_dir, cfg_proposed, device)
 
     # --- Load val frames ---
     print("\n[2/5] Loading validation frames...")
@@ -225,22 +233,22 @@ def run_comparison(
             inp_np  = s_f["input"].numpy()[0]
 
             # Inference
-            with torch.amp.autocast("cuda", dtype=torch.float16,
+            with torch.amp.autocast(device.type, dtype=torch.float16,
                                     enabled=cfg_flash.mixed_precision):
                 pred_flash = model_flash(inp_t)[0, 0].cpu().float().numpy()
 
             inp_t_p = s_p["input"].unsqueeze(0).to(device)
-            with torch.amp.autocast("cuda", dtype=torch.float16,
+            with torch.amp.autocast(device.type, dtype=torch.float16,
                                     enabled=cfg_proposed.mixed_precision):
                 pred_proposed = model_proposed(inp_t_p)[0, 0].cpu().float().numpy()
 
-            # Range image comparison: Input | FLASH | FLASH+ | GT
+            # Range image comparison: Input | baseline | proposed | GT
             plot_range_image_comparison_multi(
                 images={
                     "Input (bilinear 16→64)": inp_np,
-                    "FLASH (baseline)":       pred_flash,
-                    "FLASH+ (proposed)":      pred_proposed,
-                    "Ground Truth":           target,
+                    f"{baseline_label} (baseline)": pred_flash,
+                    f"{proposed_label} (proposed)": pred_proposed,
+                    "Ground Truth":                 target,
                 },
                 mask=mask,
                 save_path=os.path.join(output_dir, f"range_compare_{i:03d}.png"),
@@ -251,15 +259,17 @@ def run_comparison(
             flash_pts    = range_image_to_points(pred_flash,   mask, cfg_flash)
             proposed_pts = range_image_to_points(pred_proposed, mask, cfg_proposed)
 
-            # BEV comparison (GT / FLASH / FLASH+)
+            # BEV comparison (GT / baseline / proposed)
             plot_bev_three(
                 gt_pts, flash_pts, proposed_pts,
                 save_path=os.path.join(output_dir, f"bev_compare_{i:03d}.png"),
+                baseline_label=baseline_label,
+                proposed_label=proposed_label,
             )
 
             # Error histogram overlay
             plot_error_histogram_overlay(
-                models_pts={"FLASH": flash_pts, "FLASH+": proposed_pts},
+                models_pts={baseline_label: flash_pts, proposed_label: proposed_pts},
                 gt_pts=gt_pts,
                 save_path=os.path.join(output_dir, f"error_hist_overlay_{i:03d}.png"),
             )
@@ -267,25 +277,28 @@ def run_comparison(
 
     # --- Load eval metrics ---
     print("\n[4/5] Loading evaluation metrics...")
-    flash_metrics    = load_eval_metrics("baseline", base_dir)
-    proposed_metrics = load_eval_metrics("proposed", base_dir)
+    flash_metrics    = load_eval_metrics(baseline_variant, base_dir)
+    proposed_metrics = load_eval_metrics(proposed_variant, base_dir)
 
     if flash_metrics is None:
-        print("WARNING: No eval metrics for baseline. Run evaluation first.")
+        print(f"WARNING: No eval metrics for {baseline_variant}. Run evaluation first.")
     if proposed_metrics is None:
-        print("WARNING: No eval metrics for proposed. Run evaluation first.")
+        print(f"WARNING: No eval metrics for {proposed_variant}. Run evaluation first.")
 
     # --- LaTeX table ---
     generate_latex_comparison(
         flash_metrics, proposed_metrics,
         output_path=os.path.join(output_dir, "paper_comparison_table.tex"),
+        baseline_label=baseline_label,
+        proposed_label=proposed_label,
     )
 
     # --- Terminal summary ---
     print("\n" + "=" * 60)
-    print("FLASH vs FLASH+ — Comparison Summary")
+    print(f"{baseline_label} vs {proposed_label} — Comparison Summary")
     print("=" * 60)
-    for label, m in [("FLASH (baseline)", flash_metrics), ("FLASH+ (proposed)", proposed_metrics)]:
+    for label, m in [(f"{baseline_label} (baseline)", flash_metrics),
+                     (f"{proposed_label} (proposed)", proposed_metrics)]:
         if m is None:
             print(f"  {label}: metrics not available")
             continue
@@ -308,13 +321,17 @@ def run_comparison(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="FLASH vs FLASH+ cross-model comparison"
+        description="Cross-model comparison (default: FLASH vs FLASH+)"
     )
-    parser.add_argument("--base_dir",   type=str, default="experiments",
+    parser.add_argument("--base_dir",          type=str, default="experiments",
                         help="Base directory containing per-variant subdirs")
-    parser.add_argument("--output_dir", type=str, default="vis_output/comparison")
-    parser.add_argument("--num_frames", type=int, default=5)
-    parser.add_argument("--dev",        action="store_true")
+    parser.add_argument("--output_dir",        type=str, default="vis_output/comparison")
+    parser.add_argument("--num_frames",        type=int, default=5)
+    parser.add_argument("--dev",               action="store_true")
+    parser.add_argument("--baseline_variant",  type=str, default="baseline",
+                        help="Variant to use as baseline (default: baseline)")
+    parser.add_argument("--proposed_variant",  type=str, default="proposed",
+                        help="Variant to use as proposed (default: proposed)")
     args = parser.parse_args()
 
     run_comparison(
@@ -322,6 +339,8 @@ def main():
         num_frames=args.num_frames,
         output_dir=args.output_dir,
         dev=args.dev,
+        baseline_variant=args.baseline_variant,
+        proposed_variant=args.proposed_variant,
     )
 
 

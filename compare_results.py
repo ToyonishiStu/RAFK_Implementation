@@ -182,7 +182,7 @@ def generate_bar_chart(results: dict, output_path: str):
     print(f"Bar chart saved to {output_path}")
 
 
-def run_statistical_tests(results: dict):
+def run_statistical_tests(results: dict, reference_variant: str = "proposed"):
     """Run and print statistical tests on per-frame results."""
     from utils.stats import run_all_tests, print_test_results
 
@@ -190,7 +190,7 @@ def run_statistical_tests(results: dict):
     for variant, data in results.items():
         per_frame_results[variant] = data["per_frame"]
 
-    test_results = run_all_tests(per_frame_results)
+    test_results = run_all_tests(per_frame_results, reference_variant=reference_variant)
     print_test_results(test_results)
     return test_results
 
@@ -200,6 +200,8 @@ def main():
     parser.add_argument("--base_dir", type=str, default="experiments")
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--no_stats", action="store_true", help="Skip statistical tests")
+    parser.add_argument("--reference_variant", type=str, default="proposed",
+                        help="Variant to use as reference in statistical tests (default: proposed)")
     args = parser.parse_args()
 
     output_dir = args.output_dir or args.base_dir
@@ -215,7 +217,7 @@ def main():
     generate_bar_chart(results, os.path.join(output_dir, "ablation_comparison.png"))
 
     if not args.no_stats and len(results) > 1:
-        run_statistical_tests(results)
+        run_statistical_tests(results, reference_variant=args.reference_variant)
 
 
 if __name__ == "__main__":

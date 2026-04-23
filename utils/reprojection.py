@@ -2,6 +2,7 @@
 
 import numpy as np
 import math
+import torch
 from config.default import Config
 
 
@@ -49,3 +50,42 @@ def range_image_to_points(
     valid = mask > 0
     points = np.stack([x[valid], y[valid], z[valid]], axis=-1)
     return points
+
+
+def range_image_to_points_gpu(
+    range_t: torch.Tensor,
+    mask_t: torch.Tensor,
+    config: Config = None,
+) -> torch.Tensor:
+    """GPU-accelerated range image -> 3D point cloud.
+
+    Args:
+        range_t: (H, W) log-compressed range image, GPU float32 tensor
+        mask_t:  (H, W) validity mask, GPU float32 tensor
+        config:  Config for FOV parameters
+
+    Returns:
+        points: (N, 3) GPU float32 tensor [x, y, z]
+    """
+    if config is None:
+        config = Config()
+
+    H, W = range_t.shape
+    device = range_t.device
+
+    r = torch.expm1(range_t)
+
+    rows = torch.arange(H, dtype=torch.float32, device=device)
+    cols = torch.arange(W, dtype=torch.float32, device=device)
+    col_grid, row_grid = torch.meshgrid(cols, rows, indexing="xy")
+
+    pitch = config.fov_up_rad - (row_grid / H) * config.fov_total_rad
+    yaw   = math.pi - (col_grid / W) * 2.0 * math.pi
+
+    cos_pitch = torch.cos(pitch)
+    x = r * cos_pitch * torch.cos(yaw)
+    y = r * cos_pitch * torch.sin(yaw)
+    z = r * torch.sin(pitch)
+
+    valid = mask_t > 0
+    return torch.stack([x[valid], y[valid], z[valid]], dim=-1)

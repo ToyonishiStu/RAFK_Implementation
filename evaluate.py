@@ -28,42 +28,36 @@ def evaluate(model, loader, device, config):
 
     for batch in tqdm(loader, desc="Evaluating"):
         inp = batch["input"].to(device, non_blocking=True)
-        target_t = batch["target"]
-        mask_t = batch["mask"]
 
-        with torch.amp.autocast("cuda", dtype=torch.float16, enabled=config.mixed_precision):
+        with torch.amp.autocast(device.type, dtype=torch.float16, enabled=config.mixed_precision):
             pred_t = model(inp)
 
-        # Process each frame in batch
+        # Metric computation: GPU for inference (above), CPU for KDTree-based metrics.
+        # scipy KDTree with workers=-1 outperforms torch.cdist on this hardware.
         B = inp.size(0)
         for b in range(B):
             pred_np = pred_t[b, 0].cpu().float().numpy()
-            gt_np = target_t[b, 0].numpy()
-            mask_np = mask_t[b, 0].numpy()
+            gt_np   = batch["target"][b, 0].numpy()
+            mask_np = batch["mask"][b, 0].numpy()
 
-            # Reproject to 3D
             pred_pts = range_image_to_points(pred_np, mask_np, config)
-            gt_pts = range_image_to_points(gt_np, mask_np, config)
+            gt_pts   = range_image_to_points(gt_np,   mask_np, config)
 
-            # Compute metrics
             metrics = compute_all_metrics(
                 pred_np, gt_np, mask_np, pred_pts, gt_pts,
                 voxel_size=config.voxel_size, threshold=config.cd_threshold,
             )
-            # Distance-based 3D metrics (detailed)
             dist_metrics = compute_metrics_by_distance(
                 pred_pts, gt_pts,
                 distance_ranges=[(0, 10), (10, 30), (30, 50), (50, 80)],
             )
-            metrics["by_distance"] = dist_metrics
-
-            # Distance-based MAE (main reporting ranges)
             mae_by_dist = compute_mae_by_distance(
                 pred_np, gt_np, mask_np,
                 distance_ranges=[(0, 30), (30, 60)],
             )
-            metrics["mae_by_distance"] = mae_by_dist
 
+            metrics["by_distance"]    = dist_metrics
+            metrics["mae_by_distance"] = mae_by_dist
             per_frame.append(metrics)
 
     # Aggregate

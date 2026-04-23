@@ -121,7 +121,7 @@ def visualize_frames(checkpoint_path: str, config: Config = None,
         mask = sample["mask"].numpy()[0]
         input_np = sample["input"].numpy()[0]  # (64, 1024)
 
-        with torch.amp.autocast("cuda", dtype=torch.float16, enabled=config.mixed_precision):
+        with torch.amp.autocast(device.type, dtype=torch.float16, enabled=config.mixed_precision):
             pred = model(inp)
         pred_np = pred[0, 0].cpu().float().numpy()
 
