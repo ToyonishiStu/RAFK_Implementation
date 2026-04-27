@@ -1,7 +1,7 @@
 # FLASH vs FLASH+RAFK 実験結果サマリ
 
 実験日: 2026-04-24  
-実験スクリプト: `run_rafk_research.sh --dev`（10エポック、n=22フレーム）  
+実験スクリプト: `run_rafk_research.sh --full`（200エポック、n=22フレーム）  
 出力ディレクトリ: `experiments_rafk/`, `vis_rafk/`
 
 ---
