@@ -29,6 +29,9 @@ from visualize import (
     plot_range_image_comparison_multi,
     plot_error_histogram_overlay,
     benchmark_fps,
+    _subsample_pts,
+    plot_3d,
+    plot_3d_plotly,
 )
 
 
@@ -184,6 +187,102 @@ def plot_bev_three(gt_pts, flash_pts, proposed_pts, save_path: str,
     print(f"Saved: {save_path}")
 
 
+def plot_3d_three(gt_pts: np.ndarray, flash_pts: np.ndarray, proposed_pts: np.ndarray,
+                  save_path: str,
+                  baseline_label: str = "FLASH",
+                  proposed_label: str = "FLASH+") -> None:
+    """Static 3D comparison PNG: GT | baseline | proposed (max 10k pts/panel)."""
+    panels = [
+        (gt_pts,       "Ground Truth"),
+        (flash_pts,    f"{baseline_label} (baseline)"),
+        (proposed_pts, f"{proposed_label} (proposed)"),
+    ]
+    fig = plt.figure(figsize=(30, 10))
+    for idx, (pts, title) in enumerate(panels):
+        ax = fig.add_subplot(1, 3, idx + 1, projection="3d")
+        ax.set_title(title, fontsize=13)
+        if len(pts) == 0:
+            continue
+        pts = _subsample_pts(pts, 10000)
+        sc = ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2],
+                        c=pts[:, 2], s=1.0, cmap="viridis",
+                        vmin=-3, vmax=4, alpha=0.6, rasterized=True)
+        ax.set_xlim(-40, 40)
+        ax.set_ylim(-40, 40)
+        ax.set_zlim(-35, 5)
+        ax.set_xlabel("X (m)", labelpad=2)
+        ax.set_ylabel("Y (m)", labelpad=2)
+        ax.set_zlabel("Z (m)", labelpad=2)
+        ax.view_init(elev=25, azim=-60)
+        if idx == 2:
+            fig.colorbar(sc, ax=ax, shrink=0.5, pad=0.05, label="Z (m)")
+    fig.suptitle(f"3D Comparison: GT | {baseline_label} | {proposed_label}", fontsize=14)
+    plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"Saved: {save_path}")
+
+
+def plot_3d_three_plotly(gt_pts: np.ndarray, flash_pts: np.ndarray, proposed_pts: np.ndarray,
+                         save_path: str,
+                         baseline_label: str = "FLASH",
+                         proposed_label: str = "FLASH+") -> None:
+    """Interactive 3D comparison HTML: GT | baseline | proposed (max 30k pts/panel)."""
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    panels = [
+        (gt_pts,       "Ground Truth"),
+        (flash_pts,    f"{baseline_label} (baseline)"),
+        (proposed_pts, f"{proposed_label} (proposed)"),
+    ]
+    scene_keys = ["scene", "scene2", "scene3"]
+    fig = make_subplots(
+        rows=1, cols=3,
+        specs=[[{"type": "scene"}] * 3],
+        subplot_titles=[title for _, title in panels],
+    )
+    scene_cfg = dict(
+        xaxis=dict(title="X (m)", range=[-40, 40]),
+        yaxis=dict(title="Y (m)", range=[-40, 40]),
+        zaxis=dict(title="Z (m)", range=[-35, 5]),
+        aspectmode="manual",
+        aspectratio=dict(x=1, y=1, z=0.3),
+        camera=dict(eye=dict(x=0.0, y=-2.0, z=1.2), up=dict(x=0, y=0, z=1)),
+    )
+    for col_idx, (pts, title) in enumerate(panels):
+        if len(pts) == 0:
+            continue
+        pts = _subsample_pts(pts, 30000)
+        is_last = col_idx == 2
+        fig.add_trace(
+            go.Scatter3d(
+                x=pts[:, 0], y=pts[:, 1], z=pts[:, 2],
+                mode="markers",
+                marker=dict(
+                    size=1.5,
+                    color=pts[:, 2],
+                    colorscale="Viridis",
+                    cmin=-3, cmax=4,
+                    opacity=0.7,
+                    showscale=is_last,
+                    colorbar=dict(title="Z (m)", x=1.01, len=0.7, thickness=15)
+                        if is_last else None,
+                ),
+                name=title,
+            ),
+            row=1, col=col_idx + 1,
+        )
+    fig.update_layout(
+        **{k: scene_cfg for k in scene_keys},
+        width=1800,
+        height=700,
+        title_text=f"3D Point Cloud: GT | {baseline_label} | {proposed_label}",
+        showlegend=False,
+    )
+    fig.write_html(save_path)
+    print(f"Saved: {save_path}")
+
+
 @torch.no_grad()
 def run_comparison(
     base_dir: str,
@@ -273,6 +372,23 @@ def run_comparison(
                 gt_pts=gt_pts,
                 save_path=os.path.join(output_dir, f"error_hist_overlay_{i:03d}.png"),
             )
+
+            # 3D static PNG
+            plot_3d_three(
+                gt_pts, flash_pts, proposed_pts,
+                save_path=os.path.join(output_dir, f"3d_compare_{i:03d}.png"),
+                baseline_label=baseline_label,
+                proposed_label=proposed_label,
+            )
+
+            # 3D interactive HTML
+            plot_3d_three_plotly(
+                gt_pts, flash_pts, proposed_pts,
+                save_path=os.path.join(output_dir, f"3d_compare_{i:03d}.html"),
+                baseline_label=baseline_label,
+                proposed_label=proposed_label,
+            )
+
             print(f"  Frame {i+1}/{n} done.")
 
     # --- Load eval metrics ---

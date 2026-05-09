@@ -36,6 +36,14 @@ def plot_range_image_comparison(input_img, pred_img, target_img, mask,
     print(f"Saved: {save_path}")
 
 
+def _subsample_pts(pts: np.ndarray, max_n: int, seed: int = 42) -> np.ndarray:
+    """Return at most max_n points with a fixed seed for reproducibility."""
+    if len(pts) == 0 or len(pts) <= max_n:
+        return pts
+    rng = np.random.default_rng(seed)
+    return pts[rng.choice(len(pts), max_n, replace=False)]
+
+
 def plot_bev(pred_pts, gt_pts, save_path: str = "vis_bev.png", input_pts=None):
     """Bird's eye view: XY scatter colored by Z.
 
@@ -73,6 +81,122 @@ def plot_bev(pred_pts, gt_pts, save_path: str = "vis_bev.png", input_pts=None):
     plt.tight_layout()
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close()
+    print(f"Saved: {save_path}")
+
+
+def plot_3d(pred_pts: np.ndarray, gt_pts: np.ndarray,
+            save_path: str = "vis_3d.png",
+            input_pts: np.ndarray | None = None) -> None:
+    """Static 3D point cloud PNG via matplotlib (max 10k pts/panel)."""
+    if input_pts is not None:
+        panels = [
+            (input_pts, "Input (16-beam bilinear)"),
+            (gt_pts,    "Ground Truth"),
+            (pred_pts,  "Prediction"),
+        ]
+        fig = plt.figure(figsize=(30, 10))
+    else:
+        panels = [
+            (gt_pts,   "Ground Truth"),
+            (pred_pts, "Prediction"),
+        ]
+        fig = plt.figure(figsize=(20, 10))
+
+    n_cols = len(panels)
+    for idx, (pts, title) in enumerate(panels):
+        ax = fig.add_subplot(1, n_cols, idx + 1, projection="3d")
+        ax.set_title(title, fontsize=13)
+        if len(pts) == 0:
+            continue
+        pts = _subsample_pts(pts, 10000)
+        sc = ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2],
+                        c=pts[:, 2], s=1.0, cmap="viridis",
+                        vmin=-3, vmax=4, alpha=0.6, rasterized=True)
+        ax.set_xlim(-40, 40)
+        ax.set_ylim(-40, 40)
+        ax.set_zlim(-35, 5)
+        ax.set_xlabel("X (m)", labelpad=2)
+        ax.set_ylabel("Y (m)", labelpad=2)
+        ax.set_zlabel("Z (m)", labelpad=2)
+        ax.view_init(elev=25, azim=-60)
+        if idx == n_cols - 1:
+            fig.colorbar(sc, ax=ax, shrink=0.5, pad=0.05, label="Z (m)")
+
+    fig.suptitle("3D Point Cloud Comparison", fontsize=14)
+    plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"Saved: {save_path}")
+
+
+def plot_3d_plotly(pred_pts: np.ndarray, gt_pts: np.ndarray,
+                   save_path: str = "vis_3d.html",
+                   input_pts: np.ndarray | None = None) -> None:
+    """Interactive 3D point cloud HTML via plotly (max 30k pts/panel)."""
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    if input_pts is not None:
+        panels = [
+            (input_pts, "Input (16-beam bilinear)"),
+            (gt_pts,    "Ground Truth"),
+            (pred_pts,  "Prediction"),
+        ]
+    else:
+        panels = [
+            (gt_pts,   "Ground Truth"),
+            (pred_pts, "Prediction"),
+        ]
+
+    n_cols = len(panels)
+    scene_keys = ["scene"] + [f"scene{c}" for c in range(2, n_cols + 1)]
+
+    fig = make_subplots(
+        rows=1, cols=n_cols,
+        specs=[[{"type": "scene"}] * n_cols],
+        subplot_titles=[title for _, title in panels],
+    )
+
+    scene_cfg = dict(
+        xaxis=dict(title="X (m)", range=[-40, 40]),
+        yaxis=dict(title="Y (m)", range=[-40, 40]),
+        zaxis=dict(title="Z (m)", range=[-35, 5]),
+        aspectmode="manual",
+        aspectratio=dict(x=1, y=1, z=0.3),
+        camera=dict(eye=dict(x=0.0, y=-2.0, z=1.2), up=dict(x=0, y=0, z=1)),
+    )
+
+    for col_idx, (pts, title) in enumerate(panels):
+        if len(pts) == 0:
+            continue
+        pts = _subsample_pts(pts, 30000)
+        is_last = col_idx == n_cols - 1
+        fig.add_trace(
+            go.Scatter3d(
+                x=pts[:, 0], y=pts[:, 1], z=pts[:, 2],
+                mode="markers",
+                marker=dict(
+                    size=1.5,
+                    color=pts[:, 2],
+                    colorscale="Viridis",
+                    cmin=-3, cmax=4,
+                    opacity=0.7,
+                    showscale=is_last,
+                    colorbar=dict(title="Z (m)", x=1.01, len=0.7, thickness=15)
+                        if is_last else None,
+                ),
+                name=title,
+            ),
+            row=1, col=col_idx + 1,
+        )
+
+    fig.update_layout(
+        **{k: scene_cfg for k in scene_keys},
+        width=600 * n_cols,
+        height=700,
+        title_text="3D Point Cloud Comparison",
+        showlegend=False,
+    )
+    fig.write_html(save_path)
     print(f"Saved: {save_path}")
 
 
@@ -152,6 +276,14 @@ def visualize_frames(checkpoint_path: str, config: Config = None,
         input_pts = range_image_to_points(input_np, mask, config)
         plot_bev(pred_pts, gt_pts, input_pts=input_pts,
                  save_path=os.path.join(output_dir, f"bev_{i:03d}.png"))
+
+        # 3D static PNG
+        plot_3d(pred_pts, gt_pts, input_pts=input_pts,
+                save_path=os.path.join(output_dir, f"3d_{i:03d}.png"))
+
+        # 3D interactive HTML
+        plot_3d_plotly(pred_pts, gt_pts, input_pts=input_pts,
+                       save_path=os.path.join(output_dir, f"3d_{i:03d}.html"))
 
         # Error histogram
         plot_error_histogram(pred_pts, gt_pts,
