@@ -210,7 +210,7 @@ def plot_3d_three(gt_pts: np.ndarray, flash_pts: np.ndarray, proposed_pts: np.nd
                         vmin=-3, vmax=4, alpha=0.6, rasterized=True)
         ax.set_xlim(-40, 40)
         ax.set_ylim(-40, 40)
-        ax.set_zlim(-5, 5)
+        ax.set_zlim(-8, 8)
         ax.set_xlabel("X (m)", labelpad=2)
         ax.set_ylabel("Y (m)", labelpad=2)
         ax.set_zlabel("Z (m)", labelpad=2)
@@ -245,7 +245,7 @@ def plot_3d_three_plotly(gt_pts: np.ndarray, flash_pts: np.ndarray, proposed_pts
     scene_cfg = dict(
         xaxis=dict(title="X (m)", range=[-40, 40]),
         yaxis=dict(title="Y (m)", range=[-40, 40]),
-        zaxis=dict(title="Z (m)", range=[-5, 5]),
+        zaxis=dict(title="Z (m)", range=[-8, 8]),
         aspectmode="manual",
         aspectratio=dict(x=1, y=1, z=0.3),
         camera=dict(eye=dict(x=0.0, y=-2.0, z=1.2), up=dict(x=0, y=0, z=1)),

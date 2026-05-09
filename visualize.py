@@ -106,7 +106,11 @@ def plot_3d(pred_pts: np.ndarray, gt_pts: np.ndarray,
     for idx, (pts, title) in enumerate(panels):
         ax = fig.add_subplot(1, n_cols, idx + 1, projection="3d")
         ax.set_title(title, fontsize=13)
-        pts = pts[np.linalg.norm(pts, axis=1) >= 1.0]
+        is_input = (input_pts is not None) and (idx == 0)
+        if is_input:
+            pts = pts[(np.abs(pts[:, 0]) >= 3) | (np.abs(pts[:, 1]) >= 3)]
+        else:
+            pts = pts[np.linalg.norm(pts, axis=1) >= 1.0]
         if len(pts) == 0:
             continue
         pts = _subsample_pts(pts, 10000)
@@ -115,7 +119,7 @@ def plot_3d(pred_pts: np.ndarray, gt_pts: np.ndarray,
                         vmin=-3, vmax=4, alpha=0.6, rasterized=True)
         ax.set_xlim(-40, 40)
         ax.set_ylim(-40, 40)
-        ax.set_zlim(-5, 5)
+        ax.set_zlim(-8, 8)
         ax.set_xlabel("X (m)", labelpad=2)
         ax.set_ylabel("Y (m)", labelpad=2)
         ax.set_zlabel("Z (m)", labelpad=2)
@@ -160,14 +164,18 @@ def plot_3d_plotly(pred_pts: np.ndarray, gt_pts: np.ndarray,
     scene_cfg = dict(
         xaxis=dict(title="X (m)", range=[-40, 40]),
         yaxis=dict(title="Y (m)", range=[-40, 40]),
-        zaxis=dict(title="Z (m)", range=[-5, 5]),
+        zaxis=dict(title="Z (m)", range=[-8, 8]),
         aspectmode="manual",
         aspectratio=dict(x=1, y=1, z=0.3),
         camera=dict(eye=dict(x=0.0, y=-2.0, z=1.2), up=dict(x=0, y=0, z=1)),
     )
 
     for col_idx, (pts, title) in enumerate(panels):
-        pts = pts[np.linalg.norm(pts, axis=1) >= 1.0]
+        is_input = (input_pts is not None) and (col_idx == 0)
+        if is_input:
+            pts = pts[(np.abs(pts[:, 0]) >= 3) | (np.abs(pts[:, 1]) >= 3)]
+        else:
+            pts = pts[np.linalg.norm(pts, axis=1) >= 1.0]
         if len(pts) == 0:
             continue
         pts = _subsample_pts(pts, 30000)
