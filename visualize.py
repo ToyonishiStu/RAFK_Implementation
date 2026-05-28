@@ -403,7 +403,7 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint", type=str, default="checkpoints/best.pt")
     parser.add_argument("--dev", action="store_true")
     parser.add_argument("--variant", type=str, default=None,
-                        choices=["baseline", "rafk", "mkdisc", "proposed"])
+                        choices=["baseline", "rafk"])
     parser.add_argument("--num_frames", type=int, default=3)
     parser.add_argument("--output_dir", type=str, default="vis_output")
     parser.add_argument("--benchmark", action="store_true", help="Run FPS benchmark")

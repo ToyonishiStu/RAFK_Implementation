@@ -292,7 +292,7 @@ def run_comparison(
     output_dir: str,
     dev: bool,
     baseline_variant: str = "baseline",
-    proposed_variant: str = "proposed",
+    proposed_variant: str = "rafk",
 ):
     """メイン比較ルーチン。"""
     os.makedirs(output_dir, exist_ok=True)
@@ -300,7 +300,7 @@ def run_comparison(
     device = get_device()
 
     baseline_label = "FLASH" if baseline_variant == "baseline" else f"FLASH ({baseline_variant})"
-    proposed_label = "FLASH+" if proposed_variant == "proposed" else f"FLASH+ ({proposed_variant})"
+    proposed_label = "FLASH+RAFK" if proposed_variant == "rafk" else f"FLASH+ ({proposed_variant})"
 
     # --- Config per variant ---
     cfg_flash    = Config.ablation(baseline_variant, dev=dev)
@@ -448,8 +448,8 @@ def main():
     parser.add_argument("--dev",               action="store_true")
     parser.add_argument("--baseline_variant",  type=str, default="baseline",
                         help="Variant to use as baseline (default: baseline)")
-    parser.add_argument("--proposed_variant",  type=str, default="proposed",
-                        help="Variant to use as proposed (default: proposed)")
+    parser.add_argument("--proposed_variant",  type=str, default="rafk",
+                        help="Variant to use as proposed (default: rafk)")
     args = parser.parse_args()
 
     run_comparison(

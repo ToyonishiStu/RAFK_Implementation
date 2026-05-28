@@ -15,12 +15,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-VARIANTS = ["baseline", "rafk", "mkdisc", "proposed"]
+VARIANTS = ["baseline", "rafk"]
 VARIANT_LABELS = {
     "baseline": "FLASH",
-    "rafk": "+RAFK",
-    "mkdisc": "+MKDisc",
-    "proposed": "FLASH+",
+    "rafk": "FLASH+RAFK",
 }
 
 
@@ -200,8 +198,8 @@ def main():
     parser.add_argument("--base_dir", type=str, default="experiments")
     parser.add_argument("--output_dir", type=str, default=None)
     parser.add_argument("--no_stats", action="store_true", help="Skip statistical tests")
-    parser.add_argument("--reference_variant", type=str, default="proposed",
-                        help="Variant to use as reference in statistical tests (default: proposed)")
+    parser.add_argument("--reference_variant", type=str, default="rafk",
+                        help="Variant to use as reference in statistical tests (default: rafk)")
     args = parser.parse_args()
 
     output_dir = args.output_dir or args.base_dir

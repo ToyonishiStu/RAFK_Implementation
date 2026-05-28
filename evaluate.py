@@ -111,7 +111,7 @@ def main():
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--dev", action="store_true")
     parser.add_argument("--variant", type=str, default=None,
-                        choices=["baseline", "rafk", "mkdisc", "proposed"])
+                        choices=["baseline", "rafk"])
     parser.add_argument("--output", type=str, default="eval_results.npz")
     args = parser.parse_args()
 

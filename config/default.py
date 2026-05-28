@@ -51,28 +51,15 @@ class Config:
 
     # FLASH+ mode
     use_rafk: bool = False
-    use_mkdisc: bool = False
 
     # RAFK
     rafk_mlp_hidden: int = 16
 
-    # MKDisc
-    mkdisc_channels: list = field(default_factory=lambda: [64, 128, 256, 1])
-    mkdisc_meta_kernel_size: int = 3
-    mkdisc_phi_hidden: int = 32
-
     # Loss weights
-    lambda_adv: float = 0.1
     lambda_freq: float = 0.01
     beta_dist_weight: float = 2.0
     r_near: float = 30.0
     r_far: float = 60.0
-
-    # Disc training
-    disc_lr: float = 2e-4
-    disc_weight_decay: float = 0.01
-    disc_grad_clip: float = 1.0
-    adv_warmup_epochs: int = 10
 
     # Eval
     val_interval: int = 5
@@ -112,14 +99,12 @@ class Config:
         """Create config for ablation variant.
 
         Args:
-            variant: One of 'baseline', 'rafk', 'mkdisc', 'proposed'.
+            variant: One of 'baseline', 'rafk'.
             dev: If True, use dev-mode settings (small batch, few epochs).
         """
         flags = {
-            "baseline": dict(use_rafk=False, use_mkdisc=False),
-            "rafk":     dict(use_rafk=True,  use_mkdisc=False),
-            "mkdisc":   dict(use_rafk=False, use_mkdisc=True),
-            "proposed":  dict(use_rafk=True,  use_mkdisc=True),
+            "baseline": dict(use_rafk=False),
+            "rafk":     dict(use_rafk=True),
         }
         if variant not in flags:
             raise ValueError(f"Unknown variant '{variant}'. Choose from {list(flags.keys())}")

@@ -7,7 +7,7 @@ import argparse
 import json
 
 
-VARIANTS = ["baseline", "rafk", "mkdisc", "proposed"]
+VARIANTS = ["baseline", "rafk"]
 
 
 def run_command(cmd: list, desc: str):
